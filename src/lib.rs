@@ -22,6 +22,10 @@ use core::fmt;
 pub struct PciAddress(u32);
 
 impl PciAddress {
+    const DEV_SHIFT: u32 = 3;
+    const BUS_SHIFT: u32 = 8;
+    const SEG_SHIFT: u32 = 16;
+
     pub fn new(segment: u16, bus: u8, device: u8, function: u8) -> PciAddress {
         let mut result = 0;
         result.set_bits(0..3, function as u32);
@@ -45,6 +49,33 @@ impl PciAddress {
 
     pub fn function(&self) -> u8 {
         self.0.get_bits(0..3) as u8
+    }
+
+    /// Increment the address to the increment sequential PCI function.
+    /// Panics on bus overflow.
+    pub fn increment_function(&mut self) {
+        self.0.checked_add(1).unwrap();
+    }
+
+    /// Increment the address to the first function of the increment device.
+    /// Panics on bus overflow.
+    pub fn increment_device(&mut self) {
+        self.0.checked_add(1 << Self::DEV_SHIFT).unwrap();
+        self.0 &= (1 << Self::DEV_SHIFT) - 1;
+    }
+
+    /// Increment the address to the first device of the increment bus.
+    /// Panics on bus overflow.
+    pub fn increment_bus(&mut self) {
+        self.0.checked_add(1 << Self::BUS_SHIFT).unwrap();
+        self.0 &= (1 << Self::BUS_SHIFT) - 1;
+    }
+
+    /// Increment the address to the first bus of the increment segment.
+    /// Panics on bus overflow.
+    pub fn increment_segment(&mut self) {
+        self.0.checked_add(1 << Self::SEG_SHIFT).unwrap();
+        self.0 &= (1 << Self::SEG_SHIFT) - 1;
     }
 }
 
