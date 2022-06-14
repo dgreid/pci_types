@@ -113,7 +113,7 @@ impl<'a, T: ConfigRegionAccess> Iterator for CapabilityIterator<'a, T> {
             if self.offset == 0 {
                 return None;
             }
-            let data = unsafe { self.access.read(self.address, self.offset) };
+            let data = self.access.read(self.address, self.offset);
             let next_ptr = data.get_bits(8..16);
             let id = data.get_bits(0..8);
             let extension = data.get_bits(16..32) as u16;

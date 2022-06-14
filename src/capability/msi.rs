@@ -85,15 +85,15 @@ impl MsiCapability {
 
     /// Is MSI capability enabled?
     pub fn is_enabled(&self, access: &impl ConfigRegionAccess) -> bool {
-        let reg = unsafe { access.read(self.address.address, self.address.offset) };
+        let reg = access.read(self.address.address, self.address.offset);
         reg.get_bit(0)
     }
 
     /// Enable or disable MSI capability
     pub fn set_enabled(&self, enabled: bool, access: &impl ConfigRegionAccess) {
-        let mut reg = unsafe { access.read(self.address.address, self.address.offset) };
+        let mut reg = access.read(self.address.address, self.address.offset);
         reg.set_bit(0, enabled);
-        unsafe { access.write(self.address.address, self.address.offset, reg) };
+        access.write(self.address.address, self.address.offset, reg);
     }
 
     /// Set how many interrupts the device will use. If requested count is bigger than supported count,
@@ -103,9 +103,9 @@ impl MsiCapability {
         data: MultipleMessageSupport,
         access: &impl ConfigRegionAccess,
     ) {
-        let mut reg = unsafe { access.read(self.address.address, self.address.offset) };
+        let mut reg = access.read(self.address.address, self.address.offset);
         reg.set_bits(4..7, (data.min(self.multiple_message_capable)) as u32);
-        unsafe { access.write(self.address.address, self.address.offset, reg) };
+        access.write(self.address.address, self.address.offset, reg);
     }
 
     /// Return how many interrupts the device is using
@@ -113,7 +113,7 @@ impl MsiCapability {
         &self,
         access: &impl ConfigRegionAccess,
     ) -> MultipleMessageSupport {
-        let reg = unsafe { access.read(self.address.address, self.address.offset) };
+        let reg = access.read(self.address.address, self.address.offset);
         MultipleMessageSupport::try_from(reg.get_bits(4..7) as u8)
             .unwrap_or(MultipleMessageSupport::Int1)
     }
@@ -132,19 +132,16 @@ impl MsiCapability {
         trigger_mode: TriggerMode,
         access: &impl ConfigRegionAccess,
     ) {
-        unsafe { access.write(self.address.address, self.address.offset + 0x4, address) }
+        access.write(self.address.address, self.address.offset + 0x4, address);
         let data_offset = if self.is_64bit { 0xC } else { 0x8 };
-        let mut data =
-            unsafe { access.read(self.address.address, self.address.offset + data_offset) };
+        let mut data = access.read(self.address.address, self.address.offset + data_offset);
         data.set_bits(0..8, vector as u32);
         data.set_bits(14..16, trigger_mode as u32);
-        unsafe {
-            access.write(
-                self.address.address,
-                self.address.offset + data_offset,
-                data,
-            )
-        }
+        access.write(
+            self.address.address,
+            self.address.offset + data_offset,
+            data,
+        )
     }
 
     /// Get interrupt mask
@@ -154,7 +151,7 @@ impl MsiCapability {
     /// returns `0`
     pub fn get_message_mask(&self, access: &impl ConfigRegionAccess) -> u32 {
         if self.is_64bit && self.per_vector_masking {
-            unsafe { access.read(self.address.address, self.address.offset + 0x10) }
+            access.read(self.address.address, self.address.offset + 0x10)
         } else {
             0
         }
@@ -167,7 +164,7 @@ impl MsiCapability {
     /// will do nothing
     pub fn set_message_mask(&self, access: &impl ConfigRegionAccess, mask: u32) {
         if self.is_64bit && self.per_vector_masking {
-            unsafe { access.write(self.address.address, self.address.offset + 0x10, mask) }
+            access.write(self.address.address, self.address.offset + 0x10, mask)
         }
     }
 
@@ -177,7 +174,7 @@ impl MsiCapability {
     /// Only supported on when device supports 64-bit addressing. Otherwise will return `0`
     pub fn get_pending(&self, access: &impl ConfigRegionAccess) -> u32 {
         if self.is_64bit {
-            unsafe { access.read(self.address.address, self.address.offset + 0x14) }
+            access.read(self.address.address, self.address.offset + 0x14)
         } else {
             0
         }

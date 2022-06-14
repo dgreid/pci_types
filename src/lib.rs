@@ -103,8 +103,8 @@ pub type HeaderType = u8;
 // TODO: documentation
 pub trait ConfigRegionAccess: Send {
     fn function_exists(&self, address: PciAddress) -> bool;
-    unsafe fn read(&self, address: PciAddress, offset: u16) -> u32;
-    unsafe fn write(&self, address: PciAddress, offset: u16, value: u32);
+    fn read(&self, address: PciAddress, offset: u16) -> u32;
+    fn write(&self, address: PciAddress, offset: u16, value: u32);
 }
 
 pub const HEADER_TYPE_ENDPOINT: HeaderType = 0x00;
@@ -140,7 +140,7 @@ impl PciHeader {
     }
 
     pub fn id(&self, access: &impl ConfigRegionAccess) -> (VendorId, DeviceId) {
-        let id = unsafe { access.read(self.0, 0x00) };
+        let id = access.read(self.0, 0x00);
         (
             id.get_bits(0..16) as VendorId,
             id.get_bits(16..32) as DeviceId,
@@ -152,21 +152,21 @@ impl PciHeader {
          * Read bits 0..=6 of the Header Type. Bit 7 dictates whether the device has multiple functions and so
          * isn't returned here.
          */
-        unsafe { access.read(self.0, 0x0c) }.get_bits(16..23) as HeaderType
+        access.read(self.0, 0x0c).get_bits(16..23) as HeaderType
     }
 
     pub fn has_multiple_functions(&self, access: &impl ConfigRegionAccess) -> bool {
         /*
          * Reads bit 7 of the Header Type, which is 1 if the device has multiple functions.
          */
-        unsafe { access.read(self.0, 0x0c) }.get_bit(23)
+        access.read(self.0, 0x0c).get_bit(23)
     }
 
     pub fn revision_and_class(
         &self,
         access: &impl ConfigRegionAccess,
     ) -> (DeviceRevision, BaseClass, SubClass, Interface) {
-        let field = unsafe { access.read(self.0, 0x08) };
+        let field = access.read(self.0, 0x08);
         (
             field.get_bits(0..8) as DeviceRevision,
             field.get_bits(24..32) as BaseClass,
@@ -176,7 +176,7 @@ impl PciHeader {
     }
 
     pub fn status(&self, access: &impl ConfigRegionAccess) -> StatusRegister {
-        let data = unsafe { access.read(self.0, 0x4).get_bits(16..32) };
+        let data = access.read(self.0, 0x4).get_bits(16..32);
         StatusRegister::new(data as u16)
     }
 }
@@ -241,7 +241,7 @@ impl EndpointHeader {
     }
 
     pub fn status(&self, access: &impl ConfigRegionAccess) -> StatusRegister {
-        let data = unsafe { access.read(self.0, 0x4).get_bits(16..32) };
+        let data = access.read(self.0, 0x4).get_bits(16..32);
         StatusRegister::new(data as u16)
     }
 
@@ -252,7 +252,7 @@ impl EndpointHeader {
     pub fn capability_pointer(&self, access: &impl ConfigRegionAccess) -> u16 {
         let status = self.status(access);
         if status.has_capability_list() {
-            unsafe { access.read(self.0, 0x34).get_bits(0..8) as u16 }
+            access.read(self.0, 0x34).get_bits(0..8) as u16
         } else {
             0
         }
@@ -273,7 +273,7 @@ impl EndpointHeader {
     /// for slot #1
     pub fn bar(&self, slot: u8, access: &impl ConfigRegionAccess) -> Option<Bar> {
         let offset = 0x10 + (slot as u16) * 4;
-        let bar = unsafe { access.read(self.0, offset) };
+        let bar = access.read(self.0, offset);
 
         /*
          * If bit 0 is `0`, the BAR is in memory. If it's `1`, it's in I/O.
@@ -283,7 +283,7 @@ impl EndpointHeader {
             let address = bar.get_bits(4..32) << 4;
 
             // TODO: if the bar is 64-bits, do we need to do this on both BARs?
-            let size = unsafe {
+            let size = {
                 access.write(self.0, offset, 0xffffffff);
                 let mut readback = access.read(self.0, offset);
                 access.write(self.0, offset, address);
@@ -309,7 +309,7 @@ impl EndpointHeader {
                     let address = {
                         let mut address = address as u64;
                         // TODO: do we need to mask off the lower bits on this?
-                        address.set_bits(32..64, unsafe { access.read(self.0, offset + 4) } as u64);
+                        address.set_bits(32..64, access.read(self.0, offset + 4) as u64);
                         address
                     };
                     Some(Bar::Memory64 {
