@@ -51,31 +51,41 @@ impl PciAddress {
         self.0.get_bits(0..3) as u8
     }
 
-    /// Increment the address to the increment sequential PCI function.
+    /// Returns the address of the next PCI function.
     /// Panics on bus overflow.
-    pub fn increment_function(&mut self) {
-        self.0.checked_add(1).unwrap();
+    pub fn next_function(&self) -> PciAddress {
+        let addr = self.0.checked_add(1).unwrap();
+        PciAddress(addr)
     }
 
-    /// Increment the address to the first function of the increment device.
+    /// Returns the address of the first function in the next PCI device.
     /// Panics on bus overflow.
-    pub fn increment_device(&mut self) {
-        self.0.checked_add(1 << Self::DEV_SHIFT).unwrap();
-        self.0 &= (1 << Self::DEV_SHIFT) - 1;
+    pub fn next_device(&self) -> PciAddress {
+        let addr =
+            self.0.checked_add(1 << Self::DEV_SHIFT).unwrap() & !((1 << Self::DEV_SHIFT) - 1);
+        PciAddress(addr)
     }
 
-    /// Increment the address to the first device of the increment bus.
+    /// Returns the address of the first function in the next device of the next bus.
     /// Panics on bus overflow.
-    pub fn increment_bus(&mut self) {
-        self.0.checked_add(1 << Self::BUS_SHIFT).unwrap();
-        self.0 &= (1 << Self::BUS_SHIFT) - 1;
+    pub fn next_bus(&self) -> PciAddress {
+        let addr =
+            self.0.checked_add(1 << Self::BUS_SHIFT).unwrap() & !((1 << Self::BUS_SHIFT) - 1);
+        PciAddress(addr)
     }
 
-    /// Increment the address to the first bus of the increment segment.
+    /// Returns the address of the first function in the next segment.
     /// Panics on bus overflow.
-    pub fn increment_segment(&mut self) {
-        self.0.checked_add(1 << Self::SEG_SHIFT).unwrap();
-        self.0 &= (1 << Self::SEG_SHIFT) - 1;
+    pub fn next_segment(&self) -> PciAddress {
+        let addr =
+            self.0.checked_add(1 << Self::SEG_SHIFT).unwrap() & !((1 << Self::SEG_SHIFT) - 1);
+        PciAddress(addr)
+    }
+}
+
+impl From<u32> for PciAddress {
+    fn from(f: u32) -> Self {
+        PciAddress(f)
     }
 }
 
@@ -104,7 +114,7 @@ pub type HeaderType = u8;
 pub trait ConfigRegionAccess: Send {
     fn function_exists(&self, address: PciAddress) -> bool;
     fn read(&self, address: PciAddress, offset: u16) -> u32;
-    fn write(&self, address: PciAddress, offset: u16, value: u32);
+    fn write(&mut self, address: PciAddress, offset: u16, value: u32);
 }
 
 pub const HEADER_TYPE_ENDPOINT: HeaderType = 0x00;
@@ -271,7 +281,7 @@ impl EndpointHeader {
     /// ### Note
     /// 64-bit memory BARs use two slots, so if one is decoded in e.g. slot #0, this method should not be called
     /// for slot #1
-    pub fn bar(&self, slot: u8, access: &impl ConfigRegionAccess) -> Option<Bar> {
+    pub fn bar(&self, slot: u8, access: &mut impl ConfigRegionAccess) -> Option<Bar> {
         let offset = 0x10 + (slot as u16) * 4;
         let bar = access.read(self.0, offset);
 

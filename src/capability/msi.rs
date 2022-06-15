@@ -90,7 +90,7 @@ impl MsiCapability {
     }
 
     /// Enable or disable MSI capability
-    pub fn set_enabled(&self, enabled: bool, access: &impl ConfigRegionAccess) {
+    pub fn set_enabled(&self, enabled: bool, access: &mut impl ConfigRegionAccess) {
         let mut reg = access.read(self.address.address, self.address.offset);
         reg.set_bit(0, enabled);
         access.write(self.address.address, self.address.offset, reg);
@@ -101,7 +101,7 @@ impl MsiCapability {
     pub fn set_multiple_message_enable(
         &self,
         data: MultipleMessageSupport,
-        access: &impl ConfigRegionAccess,
+        access: &mut impl ConfigRegionAccess,
     ) {
         let mut reg = access.read(self.address.address, self.address.offset);
         reg.set_bits(4..7, (data.min(self.multiple_message_capable)) as u32);
@@ -130,7 +130,7 @@ impl MsiCapability {
         address: u32,
         vector: u8,
         trigger_mode: TriggerMode,
-        access: &impl ConfigRegionAccess,
+        access: &mut impl ConfigRegionAccess,
     ) {
         access.write(self.address.address, self.address.offset + 0x4, address);
         let data_offset = if self.is_64bit { 0xC } else { 0x8 };
@@ -162,7 +162,7 @@ impl MsiCapability {
     /// # Note
     /// Only supported on when device supports 64-bit addressing and per-vector masking. Otherwise
     /// will do nothing
-    pub fn set_message_mask(&self, access: &impl ConfigRegionAccess, mask: u32) {
+    pub fn set_message_mask(&self, access: &mut impl ConfigRegionAccess, mask: u32) {
         if self.is_64bit && self.per_vector_masking {
             access.write(self.address.address, self.address.offset + 0x10, mask)
         }
