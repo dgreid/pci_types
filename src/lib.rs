@@ -149,6 +149,10 @@ impl PciHeader {
         PciHeader(address)
     }
 
+    pub fn address(&self) -> PciAddress {
+        self.0
+    }
+
     pub fn id(&self, access: &impl ConfigRegionAccess) -> (VendorId, DeviceId) {
         let id = access.read(self.0, 0x00);
         (
